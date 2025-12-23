@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Shield, User, MoreVertical } from "lucide-react";
+import { Search, Shield, User, MoreVertical, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface UserWithRole {
   id: string;
@@ -34,6 +42,11 @@ const UsersManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [creating, setCreating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -109,6 +122,52 @@ const UsersManagement = () => {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword) {
+      toast({
+        title: "请填写完整信息",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // Create user via Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: newUserEmail,
+        password: newUserPassword,
+        options: {
+          data: {
+            username: newUsername || undefined,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast({ title: "用户创建成功" });
+      setDialogOpen(false);
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUsername("");
+      
+      // Wait a moment for the profile to be created
+      setTimeout(() => {
+        fetchUsers();
+      }, 1000);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "创建用户失败",
+        description: error.message || "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,6 +181,57 @@ const UsersManagement = () => {
           <h2 className="text-2xl font-display font-bold text-foreground">用户管理</h2>
           <p className="text-muted-foreground">管理平台注册用户和权限</p>
         </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              添加用户
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>添加新用户</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱 *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">密码 *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="至少6位字符"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="username">用户名</Label>
+                <Input
+                  id="username"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="可选"
+                />
+              </div>
+              <Button 
+                onClick={handleCreateUser} 
+                disabled={creating} 
+                className="w-full"
+              >
+                {creating ? "创建中..." : "创建用户"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>

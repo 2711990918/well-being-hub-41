@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Users, FileText, Apple, Dumbbell, Activity, Heart, 
   Brain, MessageSquare, Calendar, ShoppingBag, CreditCard,
-  BarChart3, Settings, Newspaper, Menu, X, LogOut, Home,
-  ChevronRight
+  BarChart3, Settings, Menu, X, LogOut, Home,
+  ChevronRight, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ import CoursesManagement from "@/components/admin/CoursesManagement";
 import ProductsManagement from "@/components/admin/ProductsManagement";
 import OrdersManagement from "@/components/admin/OrdersManagement";
 import StatisticsManagement from "@/components/admin/StatisticsManagement";
+import AIAssistantManagement from "@/components/admin/AIAssistantManagement";
 import SystemSettings from "@/components/admin/SystemSettings";
 
 const menuItems = [
@@ -39,6 +40,7 @@ const menuItems = [
   { id: "products", icon: ShoppingBag, label: "产品管理", description: "养生产品库" },
   { id: "orders", icon: CreditCard, label: "订单管理", description: "支付与结算" },
   { id: "statistics", icon: BarChart3, label: "数据统计", description: "数据分析报表" },
+  { id: "ai-assistant", icon: Sparkles, label: "AI助手设置", description: "AI助手配置" },
   { id: "settings", icon: Settings, label: "系统设置", description: "平台配置" },
 ];
 
@@ -127,6 +129,8 @@ const Admin = () => {
         return <OrdersManagement />;
       case "statistics":
         return <StatisticsManagement />;
+      case "ai-assistant":
+        return <AIAssistantManagement />;
       case "settings":
         return <SystemSettings />;
       default:

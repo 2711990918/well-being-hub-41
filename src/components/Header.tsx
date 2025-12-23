@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Leaf, User, LogOut } from "lucide-react";
+import { Menu, X, Leaf, User, LogOut, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -22,6 +24,27 @@ const Header = () => {
     { name: "健康分类", href: "/categories" },
     { name: "关于我们", href: "/about" },
   ];
+
+  useEffect(() => {
+    if (user) {
+      checkAdminRole();
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
+
+  const checkAdminRole = async () => {
+    try {
+      const { data } = await supabase.rpc('has_role', {
+        _user_id: user!.id,
+        _role: 'admin'
+      });
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Error checking admin role:", error);
+      setIsAdmin(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -71,6 +94,14 @@ const Header = () => {
                       文章管理
                     </Link>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="cursor-pointer">
+                        <Settings className="w-4 h-4 mr-2" />
+                        管理后台
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />
@@ -126,6 +157,14 @@ const Header = () => {
                         文章管理
                       </Link>
                     </Button>
+                    {isAdmin && (
+                      <Button variant="outline" asChild className="justify-start">
+                        <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                          <Settings className="w-4 h-4 mr-2" />
+                          管理后台
+                        </Link>
+                      </Button>
+                    )}
                     <Button variant="ghost" onClick={handleSignOut} className="justify-start text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
                       退出登录

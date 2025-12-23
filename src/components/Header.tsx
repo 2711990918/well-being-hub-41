@@ -1,10 +1,20 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Leaf } from "lucide-react";
+import { Menu, X, Leaf, User, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const navLinks = [
     { name: "首页", href: "/" },
@@ -12,6 +22,11 @@ const Header = () => {
     { name: "健康分类", href: "/categories" },
     { name: "关于我们", href: "/about" },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -42,8 +57,37 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost">登录</Button>
-            <Button variant="hero">开始体验</Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="wellness" className="gap-2">
+                    <User className="w-4 h-4" />
+                    我的账户
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard" className="cursor-pointer">
+                      文章管理
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/auth">登录</Link>
+                </Button>
+                <Button variant="hero" asChild>
+                  <Link to="/auth">开始体验</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -75,8 +119,28 @@ const Header = () => {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
-                <Button variant="ghost" className="justify-start">登录</Button>
-                <Button variant="hero">开始体验</Button>
+                {user ? (
+                  <>
+                    <Button variant="wellness" asChild className="justify-start">
+                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                        文章管理
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" onClick={handleSignOut} className="justify-start text-destructive">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      退出登录
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" asChild className="justify-start">
+                      <Link to="/auth" onClick={() => setIsMenuOpen(false)}>登录</Link>
+                    </Button>
+                    <Button variant="hero" asChild>
+                      <Link to="/auth" onClick={() => setIsMenuOpen(false)}>开始体验</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </nav>
           </div>

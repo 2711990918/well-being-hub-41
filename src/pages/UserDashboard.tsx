@@ -178,13 +178,14 @@ const UserDashboard = () => {
     }
 
     try {
+      const consultantId = bookingForm.consultant_id && bookingForm.consultant_id !== "auto" ? bookingForm.consultant_id : null;
       const { error } = await supabase.from("consultations").insert({
         user_id: user!.id,
         topic: bookingForm.topic,
         description: bookingForm.description || null,
         scheduled_at: bookingForm.scheduled_at || null,
-        consultant_id: bookingForm.consultant_id || null,
-        status: bookingForm.consultant_id ? "pending" : "pending",
+        consultant_id: consultantId,
+        status: "pending",
       });
 
       if (error) throw error;
@@ -296,7 +297,7 @@ const UserDashboard = () => {
                       <SelectValue placeholder="选择咨询师（可选）" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">不指定，由系统分配</SelectItem>
+                      <SelectItem value="auto">不指定，由系统分配</SelectItem>
                       {consultants.map((consultant) => (
                         <SelectItem key={consultant.user_id} value={consultant.user_id}>
                           <div className="flex items-center gap-2">

@@ -1,9 +1,66 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Sparkles, MessageSquare } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ExternalLink, Sparkles, MessageSquare, Settings, Save, Key, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const AIAssistantManagement = () => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [config, setConfig] = useState({
+    useCustomApi: false,
+    apiUrl: "",
+    apiKey: "",
+    model: "google/gemini-2.5-flash",
+  });
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("*")
+      .eq("key", "ai_config")
+      .single();
+    
+    if (data?.value) {
+      const value = data.value as Record<string, any>;
+      setConfig({
+        useCustomApi: value.useCustomApi || false,
+        apiUrl: value.apiUrl || "",
+        apiKey: value.apiKey || "",
+        model: value.model || "google/gemini-2.5-flash",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({
+          key: "ai_config",
+          value: config,
+          description: "AI助手配置",
+        }, { onConflict: "key" });
+
+      if (error) throw error;
+      toast({ title: "保存成功", description: "AI配置已更新" });
+    } catch (error) {
+      toast({ title: "保存失败", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -31,9 +88,9 @@ const AIAssistantManagement = () => {
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
               </div>
               <div className="p-4 bg-muted rounded-lg">
-                <p className="font-medium mb-2">模型信息</p>
+                <p className="font-medium mb-2">当前模型</p>
                 <p className="text-sm text-muted-foreground">
-                  使用 Google Gemini 2.5 Flash 模型，专为健康咨询优化
+                  {config.useCustomApi ? "自定义API" : "Lovable AI (Google Gemini 2.5 Flash)"}
                 </p>
               </div>
             </div>
@@ -58,13 +115,82 @@ const AIAssistantManagement = () => {
                   访问AI助手页面
                 </Button>
               </Link>
-              <p className="text-xs text-muted-foreground text-center">
-                建议在首页添加AI助手入口，方便用户访问
-              </p>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            API 配置
+          </CardTitle>
+          <CardDescription>
+            配置自定义AI API接口，支持OpenAI兼容的API
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium">使用自定义API</p>
+              <p className="text-sm text-muted-foreground">
+                启用后将使用您配置的API地址和密钥
+              </p>
+            </div>
+            <Switch
+              checked={config.useCustomApi}
+              onCheckedChange={(checked) => setConfig({ ...config, useCustomApi: checked })}
+            />
+          </div>
+
+          {config.useCustomApi && (
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  API 地址
+                </Label>
+                <Input
+                  value={config.apiUrl}
+                  onChange={(e) => setConfig({ ...config, apiUrl: e.target.value })}
+                  placeholder="https://api.openai.com/v1/chat/completions"
+                />
+                <p className="text-xs text-muted-foreground">
+                  支持OpenAI兼容的API接口
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  API Key
+                </Label>
+                <Input
+                  type="password"
+                  value={config.apiKey}
+                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  placeholder="sk-..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>模型名称</Label>
+                <Input
+                  value={config.model}
+                  onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                  placeholder="gpt-4o-mini"
+                />
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleSave} disabled={loading} className="w-full">
+            <Save className="w-4 h-4 mr-2" />
+            保存配置
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { 
   Activity, 
   Heart, 
-  Utensils, 
   Brain, 
   Calendar, 
   MessageSquare, 
@@ -24,7 +24,10 @@ import {
   ShoppingBag,
   Plus,
   Save,
-  Sparkles
+  Sparkles,
+  Users,
+  Package,
+  GraduationCap
 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -44,6 +47,14 @@ const UserDashboard = () => {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Consultation booking
+  const [showBooking, setShowBooking] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    topic: "",
+    description: "",
+    scheduled_at: "",
+  });
 
   // Health record form
   const [showHealthForm, setShowHealthForm] = useState(false);
@@ -130,6 +141,32 @@ const UserDashboard = () => {
     }
   };
 
+  const handleBookConsultation = async () => {
+    if (!bookingForm.topic.trim()) {
+      toast({ title: "请填写咨询主题", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("consultations").insert({
+        user_id: user!.id,
+        topic: bookingForm.topic,
+        description: bookingForm.description || null,
+        scheduled_at: bookingForm.scheduled_at || null,
+        status: "pending",
+      });
+
+      if (error) throw error;
+
+      toast({ title: "预约成功", description: "我们会尽快与您联系" });
+      setShowBooking(false);
+      setBookingForm({ topic: "", description: "", scheduled_at: "" });
+      fetchAllData();
+    } catch (error) {
+      toast({ title: "预约失败", variant: "destructive" });
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -145,6 +182,13 @@ const UserDashboard = () => {
     anxious: "😰 焦虑"
   };
 
+  const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    pending: { label: "待处理", variant: "secondary" },
+    confirmed: { label: "已确认", variant: "default" },
+    completed: { label: "已完成", variant: "outline" },
+    cancelled: { label: "已取消", variant: "destructive" },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -158,7 +202,7 @@ const UserDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/ai-assistant")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -192,14 +236,76 @@ const UserDashboard = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Dialog open={showBooking} onOpenChange={setShowBooking}>
+            <DialogTrigger asChild>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">预约咨询</p>
+                    <p className="text-xs text-muted-foreground">专家服务</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>预约健康咨询</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>咨询主题 *</Label>
+                  <Input
+                    value={bookingForm.topic}
+                    onChange={(e) => setBookingForm({ ...bookingForm, topic: e.target.value })}
+                    placeholder="如：血压管理、饮食建议..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>详细描述</Label>
+                  <Textarea
+                    value={bookingForm.description}
+                    onChange={(e) => setBookingForm({ ...bookingForm, description: e.target.value })}
+                    placeholder="请描述您想咨询的问题..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>期望时间</Label>
+                  <Input
+                    type="datetime-local"
+                    value={bookingForm.scheduled_at}
+                    onChange={(e) => setBookingForm({ ...bookingForm, scheduled_at: e.target.value })}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleBookConsultation}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  提交预约
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/products")}>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-500" />
+              <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-orange-500" />
               </div>
               <div>
-                <p className="font-medium text-sm">预约咨询</p>
-                <p className="text-xs text-muted-foreground">专家服务</p>
+                <p className="font-medium text-sm">健康商城</p>
+                <p className="text-xs text-muted-foreground">购买产品</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/community")}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-teal-500" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">健康社区</p>
+                <p className="text-xs text-muted-foreground">交流分享</p>
               </div>
             </CardContent>
           </Card>
@@ -411,15 +517,14 @@ const UserDashboard = () => {
                               确诊日期: {disease.diagnosis_date ? new Date(disease.diagnosis_date).toLocaleDateString("zh-CN") : "未知"}
                             </p>
                           </div>
-                          <Badge>{disease.current_status || "管理中"}</Badge>
+                          <Badge variant={disease.current_status === "stable" ? "secondary" : "outline"}>
+                            {disease.current_status || "监测中"}
+                          </Badge>
                         </div>
                         {disease.medications && disease.medications.length > 0 && (
                           <div className="mt-2">
-                            <p className="text-sm">用药: {disease.medications.join(", ")}</p>
+                            <p className="text-sm text-muted-foreground">用药: {disease.medications.join("、")}</p>
                           </div>
-                        )}
-                        {disease.doctor_notes && (
-                          <p className="text-sm text-muted-foreground mt-2">{disease.doctor_notes}</p>
                         )}
                       </div>
                     ))}
@@ -432,36 +537,51 @@ const UserDashboard = () => {
           {/* Consultations */}
           <TabsContent value="consult" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  咨询记录
-                </CardTitle>
-                <CardDescription>您的健康咨询预约</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    咨询记录
+                  </CardTitle>
+                  <CardDescription>您的健康咨询记录</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setShowBooking(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  预约咨询
+                </Button>
               </CardHeader>
               <CardContent>
                 {consultations.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-30" />
                     <p>暂无咨询记录</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={() => setShowBooking(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      预约咨询
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {consultations.map((consult) => (
                       <div key={consult.id} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="font-medium">{consult.topic}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {consult.consultant_name || "待分配顾问"}
+                              {consult.scheduled_at 
+                                ? new Date(consult.scheduled_at).toLocaleString("zh-CN") 
+                                : new Date(consult.created_at).toLocaleDateString("zh-CN")}
                             </p>
                           </div>
-                          <Badge variant={consult.status === "completed" ? "default" : "secondary"}>
-                            {consult.status === "pending" ? "待处理" : consult.status === "completed" ? "已完成" : consult.status}
+                          <Badge variant={statusLabels[consult.status]?.variant || "secondary"}>
+                            {statusLabels[consult.status]?.label || consult.status}
                           </Badge>
                         </div>
-                        {consult.scheduled_at && (
-                          <p className="text-sm mt-2">预约时间: {new Date(consult.scheduled_at).toLocaleString("zh-CN")}</p>
+                        {consult.description && (
+                          <p className="text-sm text-muted-foreground">{consult.description}</p>
+                        )}
+                        {consult.consultant_name && (
+                          <p className="text-sm mt-2">咨询师: {consult.consultant_name}</p>
                         )}
                       </div>
                     ))}
@@ -485,29 +605,33 @@ const UserDashboard = () => {
                 {orders.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                    <p>暂无订单记录</p>
+                    <p>暂无订单</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate("/products")}>
+                      去购物
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {orders.map((order) => (
                       <div key={order.id} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="font-medium">{order.item_name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {order.order_type} · 数量: {order.quantity}
+                              {new Date(order.created_at).toLocaleDateString("zh-CN")}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-medium text-primary">¥{order.total_price}</p>
-                            <Badge variant={order.status === "completed" ? "default" : "secondary"}>
-                              {order.status === "pending" ? "待付款" : order.status === "completed" ? "已完成" : order.status}
-                            </Badge>
-                          </div>
+                          <Badge variant={statusLabels[order.status]?.variant || "secondary"}>
+                            {statusLabels[order.status]?.label || order.status}
+                          </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {new Date(order.created_at).toLocaleString("zh-CN")}
-                        </p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">
+                            <Badge variant="outline" className="mr-2">{order.order_type === "product" ? "商品" : "课程"}</Badge>
+                            {order.quantity && `x${order.quantity}`}
+                          </span>
+                          <span className="font-bold text-primary">¥{order.total_price}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

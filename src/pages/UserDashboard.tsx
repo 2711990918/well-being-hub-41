@@ -36,6 +36,18 @@ type ChronicDisease = Database["public"]["Tables"]["chronic_diseases"]["Row"];
 type Consultation = Database["public"]["Tables"]["consultations"]["Row"];
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 
+interface ConsultantInfo {
+  id: string;
+  user_id: string;
+  specialty: string;
+  bio: string | null;
+  experience_years: number;
+  rating: number;
+  hourly_rate: number;
+  is_available: boolean;
+  username?: string;
+}
+
 const UserDashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +58,7 @@ const UserDashboard = () => {
   const [chronicDiseases, setChronicDiseases] = useState<ChronicDisease[]>([]);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [consultants, setConsultants] = useState<ConsultantInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Consultation booking
@@ -54,6 +67,7 @@ const UserDashboard = () => {
     topic: "",
     description: "",
     scheduled_at: "",
+    consultant_id: "",
   });
 
   // Health record form
@@ -84,12 +98,13 @@ const UserDashboard = () => {
 
   const fetchAllData = async () => {
     try {
-      const [profileRes, healthRes, diseaseRes, consultRes, orderRes] = await Promise.all([
+      const [profileRes, healthRes, diseaseRes, consultRes, orderRes, consultantsRes] = await Promise.all([
         supabase.from("profiles").select("username").eq("user_id", user!.id).single(),
         supabase.from("health_monitoring").select("*").eq("user_id", user!.id).order("record_date", { ascending: false }).limit(10),
         supabase.from("chronic_diseases").select("*").eq("user_id", user!.id),
         supabase.from("consultations").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }),
-        supabase.from("orders").select("*").eq("user_id", user!.id).order("created_at", { ascending: false })
+        supabase.from("orders").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }),
+        supabase.from("consultant_profiles").select("*").eq("is_available", true)
       ]);
 
       setProfile(profileRes.data);
@@ -97,6 +112,21 @@ const UserDashboard = () => {
       setChronicDiseases(diseaseRes.data || []);
       setConsultations(consultRes.data || []);
       setOrders(orderRes.data || []);
+      
+      // Fetch consultant usernames
+      if (consultantsRes.data && consultantsRes.data.length > 0) {
+        const userIds = consultantsRes.data.map(c => c.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, username")
+          .in("user_id", userIds);
+        
+        const consultantsWithNames = consultantsRes.data.map(c => ({
+          ...c,
+          username: profiles?.find(p => p.user_id === c.user_id)?.username || "咨询师"
+        }));
+        setConsultants(consultantsWithNames);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -153,14 +183,15 @@ const UserDashboard = () => {
         topic: bookingForm.topic,
         description: bookingForm.description || null,
         scheduled_at: bookingForm.scheduled_at || null,
-        status: "pending",
+        consultant_id: bookingForm.consultant_id || null,
+        status: bookingForm.consultant_id ? "pending" : "pending",
       });
 
       if (error) throw error;
 
-      toast({ title: "预约成功", description: "我们会尽快与您联系" });
+      toast({ title: "预约成功", description: bookingForm.consultant_id ? "已向指定咨询师发送预约" : "我们会尽快为您分配咨询师" });
       setShowBooking(false);
-      setBookingForm({ topic: "", description: "", scheduled_at: "" });
+      setBookingForm({ topic: "", description: "", scheduled_at: "", consultant_id: "" });
       fetchAllData();
     } catch (error) {
       toast({ title: "预约失败", variant: "destructive" });
@@ -250,17 +281,41 @@ const UserDashboard = () => {
                 </CardContent>
               </Card>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>预约健康咨询</DialogTitle>
+                <DialogTitle>预约心理咨询</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>选择咨询师</Label>
+                  <Select 
+                    value={bookingForm.consultant_id} 
+                    onValueChange={(v) => setBookingForm({ ...bookingForm, consultant_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择咨询师（可选）" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">不指定，由系统分配</SelectItem>
+                      {consultants.map((consultant) => (
+                        <SelectItem key={consultant.user_id} value={consultant.user_id}>
+                          <div className="flex items-center gap-2">
+                            <span>{consultant.username}</span>
+                            <span className="text-muted-foreground text-xs">
+                              ({consultant.specialty} · {consultant.experience_years}年经验 · ⭐{consultant.rating})
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>咨询主题 *</Label>
                   <Input
                     value={bookingForm.topic}
                     onChange={(e) => setBookingForm({ ...bookingForm, topic: e.target.value })}
-                    placeholder="如：血压管理、饮食建议..."
+                    placeholder="如：情绪管理、压力疏导..."
                   />
                 </div>
                 <div className="space-y-2">

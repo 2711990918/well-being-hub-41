@@ -28,16 +28,16 @@ const About = () => {
                   <Heart className="w-12 h-12 text-white" />
                 </div>
                 <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  心理健康管理平台
+                  健康养生平台
                 </h1>
-                <p className="text-white/80 text-lg">Mental Health Management Platform</p>
+                <p className="text-white/80 text-lg">Health & Wellness Platform</p>
               </div>
               
               <div className="p-8 space-y-6">
                 <div className="text-center">
-                  <p className="text-muted-foreground text-lg leading-relaxed">
-                    一个集心理健康监测、专业咨询服务、健康知识分享于一体的综合性平台，
-                    旨在为用户提供全方位的心理健康管理解决方案。
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                    一个集健康监测、养生咨询、健康知识分享于一体的综合性平台，
+                    旨在为用户提供全方位的健康养生管理解决方案。
                   </p>
                 </div>
               </div>
@@ -141,8 +141,8 @@ const About = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">项目名称</p>
-                    <p className="text-lg font-semibold text-foreground">心理健康管理平台</p>
-                    <p className="text-sm text-muted-foreground">Mental Health Management Platform</p>
+                    <p className="text-lg font-semibold text-foreground">健康养生平台</p>
+                    <p className="text-sm text-muted-foreground">Health & Wellness Platform</p>
                   </div>
                 </div>
               </div>
@@ -179,7 +179,7 @@ const About = () => {
           {/* Footer */}
           <div className="text-center py-8">
             <p className="text-muted-foreground">
-              © 2024 心理健康管理平台 - 南昌航空大学信息工程学院
+              © 2024 健康养生平台 - 南昌航空大学信息工程学院
             </p>
             <p className="text-muted-foreground mt-2">
               设计制作：岳郁佳

@@ -30,14 +30,24 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, userInfo } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Processing chat request with", messages.length, "messages");
+    console.log("Processing chat request with", messages.length, "messages", "for user:", userInfo?.username);
+
+    // Build personalized system prompt
+    let personalizedPrompt = SYSTEM_PROMPT;
+    if (userInfo?.username) {
+      personalizedPrompt += `\n\n当前用户信息：
+- 用户名：${userInfo.username}
+- 邮箱：${userInfo.email || '未提供'}
+
+请在对话中适当称呼用户的名字，让对话更加亲切。`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -48,7 +58,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: personalizedPrompt },
           ...messages,
         ],
         stream: true,

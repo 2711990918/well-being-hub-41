@@ -90,8 +90,8 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard" className="cursor-pointer">
-                      文章管理
+                    <Link to="/user-dashboard" className="cursor-pointer">
+                      个人中心
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
@@ -153,8 +153,8 @@ const Header = () => {
                 {user ? (
                   <>
                     <Button variant="wellness" asChild className="justify-start">
-                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                        文章管理
+                      <Link to="/user-dashboard" onClick={() => setIsMenuOpen(false)}>
+                        个人中心
                       </Link>
                     </Button>
                     {isAdmin && (

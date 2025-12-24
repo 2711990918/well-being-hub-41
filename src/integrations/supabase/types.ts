@@ -148,8 +148,54 @@ export type Database = {
         }
         Relationships: []
       }
+      consultant_profiles: {
+        Row: {
+          bio: string | null
+          certifications: string[] | null
+          created_at: string
+          experience_years: number | null
+          hourly_rate: number | null
+          id: string
+          is_available: boolean | null
+          rating: number | null
+          specialty: string
+          total_consultations: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          certifications?: string[] | null
+          created_at?: string
+          experience_years?: number | null
+          hourly_rate?: number | null
+          id?: string
+          is_available?: boolean | null
+          rating?: number | null
+          specialty?: string
+          total_consultations?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          certifications?: string[] | null
+          created_at?: string
+          experience_years?: number | null
+          hourly_rate?: number | null
+          id?: string
+          is_available?: boolean | null
+          rating?: number | null
+          specialty?: string
+          total_consultations?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       consultations: {
         Row: {
+          consultant_id: string | null
           consultant_name: string | null
           created_at: string
           description: string | null
@@ -162,6 +208,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          consultant_id?: string | null
           consultant_name?: string | null
           created_at?: string
           description?: string | null
@@ -174,6 +221,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          consultant_id?: string | null
           consultant_name?: string | null
           created_at?: string
           description?: string | null
@@ -606,7 +654,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "consultant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -734,7 +782,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "consultant"],
     },
   },
 } as const

@@ -15,6 +15,7 @@ import {
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isConsultant, setIsConsultant] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -27,22 +28,28 @@ const Header = () => {
 
   useEffect(() => {
     if (user) {
-      checkAdminRole();
+      checkRoles();
     } else {
       setIsAdmin(false);
+      setIsConsultant(false);
     }
   }, [user]);
 
-  const checkAdminRole = async () => {
+  const checkRoles = async () => {
     try {
-      const { data } = await supabase.rpc('has_role', {
-        _user_id: user!.id,
-        _role: 'admin'
-      });
-      setIsAdmin(!!data);
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id);
+      
+      if (roles) {
+        setIsAdmin(roles.some(r => r.role === "admin"));
+        setIsConsultant(roles.some(r => r.role === "consultant"));
+      }
     } catch (error) {
-      console.error("Error checking admin role:", error);
+      console.error("Error checking roles:", error);
       setIsAdmin(false);
+      setIsConsultant(false);
     }
   };
 
@@ -94,6 +101,13 @@ const Header = () => {
                       个人中心
                     </Link>
                   </DropdownMenuItem>
+                  {isConsultant && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/consultant-dashboard" className="cursor-pointer">
+                        咨询师工作台
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   {isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="cursor-pointer">
@@ -157,6 +171,13 @@ const Header = () => {
                         个人中心
                       </Link>
                     </Button>
+                    {isConsultant && (
+                      <Button variant="outline" asChild className="justify-start">
+                        <Link to="/consultant-dashboard" onClick={() => setIsMenuOpen(false)}>
+                          咨询师工作台
+                        </Link>
+                      </Button>
+                    )}
                     {isAdmin && (
                       <Button variant="outline" asChild className="justify-start">
                         <Link to="/admin" onClick={() => setIsMenuOpen(false)}>

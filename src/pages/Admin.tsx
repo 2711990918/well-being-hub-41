@@ -6,7 +6,7 @@ import {
   Users, FileText, Apple, Dumbbell, Activity, Heart, 
   Brain, MessageSquare, Calendar, ShoppingBag, CreditCard,
   BarChart3, Settings, Menu, X, LogOut, Home,
-  ChevronRight, Sparkles
+  ChevronRight, Sparkles, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ import ExercisePlansManagement from "@/components/admin/ExercisePlansManagement"
 import HealthMonitoringManagement from "@/components/admin/HealthMonitoringManagement";
 import ChronicDiseasesManagement from "@/components/admin/ChronicDiseasesManagement";
 import ConsultationsManagement from "@/components/admin/ConsultationsManagement";
+import ConsultantsManagement from "@/components/admin/ConsultantsManagement";
 import CommunityManagement from "@/components/admin/CommunityManagement";
 import CoursesManagement from "@/components/admin/CoursesManagement";
 import ProductsManagement from "@/components/admin/ProductsManagement";
@@ -29,12 +30,13 @@ import SystemSettings from "@/components/admin/SystemSettings";
 
 const menuItems = [
   { id: "users", icon: Users, label: "用户管理", description: "管理平台用户" },
+  { id: "consultants", icon: UserCheck, label: "咨询师管理", description: "心理咨询师团队" },
   { id: "articles", icon: FileText, label: "资讯管理", description: "健康文章管理" },
   { id: "diet", icon: Apple, label: "饮食推荐", description: "健康饮食计划" },
   { id: "exercise", icon: Dumbbell, label: "运动计划", description: "健身方案管理" },
   { id: "monitoring", icon: Activity, label: "健康监测", description: "用户健康数据" },
   { id: "chronic", icon: Heart, label: "慢病管理", description: "慢性病记录" },
-  { id: "consultations", icon: Brain, label: "心理咨询", description: "咨询预约管理" },
+  { id: "consultations", icon: Brain, label: "咨询预约", description: "咨询预约管理" },
   { id: "community", icon: MessageSquare, label: "社区管理", description: "用户互动内容" },
   { id: "courses", icon: Calendar, label: "课程活动", description: "养生课程管理" },
   { id: "products", icon: ShoppingBag, label: "产品管理", description: "养生产品库" },
@@ -107,6 +109,8 @@ const Admin = () => {
     switch (activeModule) {
       case "users":
         return <UsersManagement />;
+      case "consultants":
+        return <ConsultantsManagement />;
       case "articles":
         return <ArticlesManagement />;
       case "diet":

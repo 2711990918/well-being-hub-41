@@ -1,6 +1,6 @@
 # 健康养生平台 - 自托管部署指南
 
-本文档详细介绍如何将项目部署到自己的服务器上。
+本文档详细介绍如何将项目部署到自己的服务器上，以及如何将数据库迁移到您自己的 Supabase 账户。
 
 ---
 
@@ -13,7 +13,8 @@
 5. [Nginx 配置](#nginx-配置)
 6. [HTTPS 配置](#https-配置)
 7. [数据库连接](#数据库连接)
-8. [常见问题](#常见问题)
+8. [**迁移到自己的 Supabase（重要）**](#迁移到自己的-supabase)
+9. [常见问题](#常见问题)
 
 ---
 
@@ -347,6 +348,607 @@ server {
 # 使用 psql 连接
 psql "postgresql://postgres:你的密码@db.uuhxlcfgbrozyjovdunl.supabase.co:5432/postgres?sslmode=require"
 ```
+
+---
+
+## 迁移到自己的 Supabase
+
+将项目从 Lovable Cloud 迁移到您自己的 Supabase 账户，让您完全掌控数据库。
+
+### 第一步：创建新的 Supabase 项目
+
+1. 访问 [Supabase 官网](https://supabase.com/) 并注册/登录
+2. 点击 "New Project" 创建新项目
+3. 设置项目名称和数据库密码（**请妥善保存密码**）
+4. 选择服务器区域（建议选择离用户最近的区域）
+5. 等待项目创建完成（约 2 分钟）
+
+### 第二步：导出当前数据库结构和数据
+
+#### 方法一：使用 pg_dump 命令（推荐）
+
+```bash
+# 安装 PostgreSQL 客户端（如未安装）
+# Ubuntu/Debian
+sudo apt install postgresql-client
+
+# macOS
+brew install postgresql
+
+# 导出完整数据库（结构 + 数据）
+pg_dump "postgresql://postgres:你的密码@db.uuhxlcfgbrozyjovdunl.supabase.co:5432/postgres?sslmode=require" \
+  --no-owner \
+  --no-acl \
+  --clean \
+  --if-exists \
+  > full_backup.sql
+
+# 仅导出数据库结构（不含数据）
+pg_dump "postgresql://postgres:你的密码@db.uuhxlcfgbrozyjovdunl.supabase.co:5432/postgres?sslmode=require" \
+  --schema-only \
+  --no-owner \
+  --no-acl \
+  > schema_only.sql
+
+# 仅导出数据（不含结构）
+pg_dump "postgresql://postgres:你的密码@db.uuhxlcfgbrozyjovdunl.supabase.co:5432/postgres?sslmode=require" \
+  --data-only \
+  --no-owner \
+  --no-acl \
+  > data_only.sql
+```
+
+#### 方法二：使用 DBeaver 图形界面
+
+1. 连接到当前数据库（使用上方连接信息）
+2. 右键点击数据库 → **工具** → **备份数据库**
+3. 选择要导出的表和选项
+4. 导出为 SQL 文件
+
+### 第三步：在新 Supabase 项目中创建表结构
+
+在新 Supabase 项目的 SQL Editor 中执行以下 SQL（这是当前项目的完整数据库结构）：
+
+```sql
+-- ==========================================
+-- 健康养生平台数据库结构
+-- ==========================================
+
+-- 创建用户角色枚举
+CREATE TYPE public.app_role AS ENUM ('admin', 'user', 'consultant');
+
+-- ==========================================
+-- 用户配置表
+-- ==========================================
+CREATE TABLE public.profiles (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL UNIQUE,
+    username TEXT,
+    avatar_url TEXT,
+    bio TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 用户角色表
+-- ==========================================
+CREATE TABLE public.user_roles (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    role app_role NOT NULL DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    UNIQUE (user_id, role)
+);
+
+-- ==========================================
+-- 文章表
+-- ==========================================
+CREATE TABLE public.articles (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    author_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    excerpt TEXT,
+    cover_image TEXT,
+    category TEXT NOT NULL DEFAULT 'general',
+    tags TEXT[] DEFAULT '{}',
+    is_published BOOLEAN DEFAULT false,
+    views_count INTEGER DEFAULT 0,
+    read_time INTEGER DEFAULT 5,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 慢性病记录表
+-- ==========================================
+CREATE TABLE public.chronic_diseases (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    disease_name TEXT NOT NULL,
+    diagnosis_date DATE,
+    current_status TEXT,
+    medications TEXT[],
+    doctor_notes TEXT,
+    next_checkup DATE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 社区帖子表
+-- ==========================================
+CREATE TABLE public.community_posts (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT,
+    likes_count INTEGER DEFAULT 0,
+    comments_count INTEGER DEFAULT 0,
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 咨询师档案表
+-- ==========================================
+CREATE TABLE public.consultant_profiles (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL UNIQUE,
+    specialty TEXT NOT NULL DEFAULT '心理咨询',
+    bio TEXT,
+    experience_years INTEGER DEFAULT 0,
+    certifications TEXT[],
+    hourly_rate NUMERIC DEFAULT 100,
+    is_available BOOLEAN DEFAULT true,
+    rating NUMERIC DEFAULT 5.0,
+    total_consultations INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 咨询记录表
+-- ==========================================
+CREATE TABLE public.consultations (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    consultant_id UUID,
+    consultant_name TEXT,
+    topic TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    scheduled_at TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 饮食计划表
+-- ==========================================
+CREATE TABLE public.diet_plans (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    meal_type TEXT NOT NULL,
+    calories INTEGER,
+    ingredients TEXT[],
+    instructions TEXT,
+    suitable_for TEXT[],
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 运动计划表
+-- ==========================================
+CREATE TABLE public.exercise_plans (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    difficulty TEXT NOT NULL,
+    duration_minutes INTEGER,
+    calories_burn INTEGER,
+    equipment TEXT[],
+    steps TEXT[],
+    video_url TEXT,
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 健康监测表
+-- ==========================================
+CREATE TABLE public.health_monitoring (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    record_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    blood_pressure_systolic INTEGER,
+    blood_pressure_diastolic INTEGER,
+    heart_rate INTEGER,
+    blood_sugar NUMERIC,
+    sleep_hours NUMERIC,
+    water_intake INTEGER,
+    steps INTEGER,
+    mood TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 健康记录表
+-- ==========================================
+CREATE TABLE public.health_records (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL UNIQUE,
+    blood_type TEXT,
+    height NUMERIC,
+    weight NUMERIC,
+    allergies TEXT[],
+    medical_history TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 订单表
+-- ==========================================
+CREATE TABLE public.orders (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL,
+    item_id UUID NOT NULL,
+    item_name TEXT NOT NULL,
+    order_type TEXT NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    total_price NUMERIC NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    payment_method TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 产品表
+-- ==========================================
+CREATE TABLE public.products (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    price NUMERIC NOT NULL,
+    stock INTEGER DEFAULT 0,
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 系统设置表
+-- ==========================================
+CREATE TABLE public.system_settings (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_by UUID,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 养生课程表
+-- ==========================================
+CREATE TABLE public.wellness_courses (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    instructor TEXT,
+    duration_minutes INTEGER,
+    price NUMERIC DEFAULT 0,
+    max_participants INTEGER,
+    current_participants INTEGER DEFAULT 0,
+    start_date TIMESTAMP WITH TIME ZONE,
+    location TEXT,
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- ==========================================
+-- 数据库函数
+-- ==========================================
+
+-- 更新 updated_at 触发器函数
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public;
+
+-- 检查用户角色函数
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role = _role
+  )
+$$;
+
+-- 新用户注册处理函数
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (user_id, username)
+  VALUES (new.id, new.raw_user_meta_data ->> 'username');
+  RETURN new;
+END;
+$$;
+
+-- ==========================================
+-- 触发器
+-- ==========================================
+
+-- 自动更新 updated_at
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_articles_updated_at BEFORE UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_chronic_diseases_updated_at BEFORE UPDATE ON public.chronic_diseases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_community_posts_updated_at BEFORE UPDATE ON public.community_posts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_consultant_profiles_updated_at BEFORE UPDATE ON public.consultant_profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_consultations_updated_at BEFORE UPDATE ON public.consultations FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_diet_plans_updated_at BEFORE UPDATE ON public.diet_plans FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_exercise_plans_updated_at BEFORE UPDATE ON public.exercise_plans FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_health_records_updated_at BEFORE UPDATE ON public.health_records FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_wellness_courses_updated_at BEFORE UPDATE ON public.wellness_courses FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- 新用户注册触发器
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+### 第四步：设置 RLS（行级安全策略）
+
+在新 Supabase 项目的 SQL Editor 中执行：
+
+```sql
+-- ==========================================
+-- 启用 RLS
+-- ==========================================
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.articles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chronic_diseases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.community_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.consultant_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.consultations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.diet_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exercise_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.health_monitoring ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.health_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wellness_courses ENABLE ROW LEVEL SECURITY;
+
+-- ==========================================
+-- Profiles 策略
+-- ==========================================
+CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- ==========================================
+-- User Roles 策略
+-- ==========================================
+CREATE POLICY "Users can view their own roles" ON public.user_roles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all roles" ON public.user_roles FOR SELECT USING (has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Articles 策略
+-- ==========================================
+CREATE POLICY "Published articles are viewable by everyone" ON public.articles FOR SELECT USING (is_published = true);
+CREATE POLICY "Authors can view their own articles" ON public.articles FOR SELECT USING (auth.uid() = author_id);
+CREATE POLICY "Authors can insert their own articles" ON public.articles FOR INSERT WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Authors can update their own articles" ON public.articles FOR UPDATE USING (auth.uid() = author_id);
+CREATE POLICY "Authors can delete their own articles" ON public.articles FOR DELETE USING (auth.uid() = author_id);
+
+-- ==========================================
+-- Chronic Diseases 策略
+-- ==========================================
+CREATE POLICY "Users can manage their own chronic disease records" ON public.chronic_diseases FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all chronic disease records" ON public.chronic_diseases FOR SELECT USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Community Posts 策略
+-- ==========================================
+CREATE POLICY "Published posts are viewable by authenticated users" ON public.community_posts FOR SELECT USING ((is_published = true) OR (auth.uid() = user_id));
+CREATE POLICY "Users can create their own posts" ON public.community_posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own posts" ON public.community_posts FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Admins can manage all posts" ON public.community_posts FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Consultant Profiles 策略
+-- ==========================================
+CREATE POLICY "Consultant profiles are viewable by everyone" ON public.consultant_profiles FOR SELECT USING (true);
+CREATE POLICY "Consultants can insert their own profile" ON public.consultant_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Consultants can update their own profile" ON public.consultant_profiles FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Admins can manage consultant profiles" ON public.consultant_profiles FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Consultations 策略
+-- ==========================================
+CREATE POLICY "Users can manage their own consultations" ON public.consultations FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Admins can manage all consultations" ON public.consultations FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Diet Plans 策略
+-- ==========================================
+CREATE POLICY "Active diet plans are viewable by everyone" ON public.diet_plans FOR SELECT USING (is_active = true);
+CREATE POLICY "Admins can manage diet plans" ON public.diet_plans FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Exercise Plans 策略
+-- ==========================================
+CREATE POLICY "Active exercise plans are viewable by everyone" ON public.exercise_plans FOR SELECT USING (is_active = true);
+CREATE POLICY "Admins can manage exercise plans" ON public.exercise_plans FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Health Monitoring 策略
+-- ==========================================
+CREATE POLICY "Users can manage their own monitoring data" ON public.health_monitoring FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all monitoring data" ON public.health_monitoring FOR SELECT USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Health Records 策略
+-- ==========================================
+CREATE POLICY "Users can manage their own health records" ON public.health_records FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all health records" ON public.health_records FOR SELECT USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Orders 策略
+-- ==========================================
+CREATE POLICY "Users can view their own orders" ON public.orders FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can create their own orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admins can manage all orders" ON public.orders FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Products 策略
+-- ==========================================
+CREATE POLICY "Active products are viewable by everyone" ON public.products FOR SELECT USING (is_active = true);
+CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- System Settings 策略
+-- ==========================================
+CREATE POLICY "Settings are viewable by admins" ON public.system_settings FOR SELECT USING (has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can manage settings" ON public.system_settings FOR ALL USING (has_role(auth.uid(), 'admin'));
+
+-- ==========================================
+-- Wellness Courses 策略
+-- ==========================================
+CREATE POLICY "Active courses are viewable by everyone" ON public.wellness_courses FOR SELECT USING (is_active = true);
+CREATE POLICY "Admins can manage courses" ON public.wellness_courses FOR ALL USING (has_role(auth.uid(), 'admin'));
+```
+
+### 第五步：导入数据
+
+```bash
+# 将之前导出的数据导入到新 Supabase 项目
+psql "postgresql://postgres:新项目密码@db.新项目ID.supabase.co:5432/postgres?sslmode=require" < data_only.sql
+```
+
+或者使用 Supabase Dashboard 的 SQL Editor 执行数据插入语句。
+
+### 第六步：获取新项目的 API 密钥
+
+1. 进入新 Supabase 项目的 **Settings** → **API**
+2. 复制以下信息：
+   - **Project URL**: `https://你的项目ID.supabase.co`
+   - **anon public key**: 用于前端连接
+   - **service_role key**: 用于后端/管理操作（妥善保管）
+
+### 第七步：更新项目配置
+
+修改项目的 `.env` 文件：
+
+```env
+# 替换为新 Supabase 项目的配置
+VITE_SUPABASE_URL=https://你的新项目ID.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=你的新anon_key
+VITE_SUPABASE_PROJECT_ID=你的新项目ID
+```
+
+### 第八步：重新构建和部署
+
+```bash
+# 重新构建
+npm run build
+
+# 部署到服务器
+sudo cp -r dist/* /var/www/health-platform/
+sudo systemctl reload nginx
+```
+
+### 第九步：配置 Edge Functions（如有需要）
+
+如果项目使用了 Edge Functions（如 AI 聊天功能），需要：
+
+1. 安装 Supabase CLI：
+   ```bash
+   npm install -g supabase
+   ```
+
+2. 登录并链接项目：
+   ```bash
+   supabase login
+   supabase link --project-ref 你的新项目ID
+   ```
+
+3. 部署 Edge Functions：
+   ```bash
+   supabase functions deploy ai-chat
+   ```
+
+4. 设置函数所需的密钥：
+   ```bash
+   supabase secrets set LOVABLE_API_KEY=你的API密钥
+   ```
+
+### 迁移检查清单
+
+- [ ] 新 Supabase 项目已创建
+- [ ] 数据库结构已导入
+- [ ] RLS 策略已配置
+- [ ] 数据已迁移
+- [ ] `.env` 文件已更新
+- [ ] 项目已重新构建
+- [ ] Edge Functions 已部署（如有）
+- [ ] 测试登录功能
+- [ ] 测试数据读写功能
+
+### 迁移后访问数据库
+
+迁移完成后，您可以使用任意 PostgreSQL 客户端连接您自己的 Supabase 数据库：
+
+| 参数 | 值 |
+|------|-----|
+| **主机** | `db.你的项目ID.supabase.co` |
+| **端口** | `5432` |
+| **数据库名** | `postgres` |
+| **用户名** | `postgres` |
+| **密码** | 创建项目时设置的密码 |
+| **SSL** | 必须启用 |
 
 ---
 

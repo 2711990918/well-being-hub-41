@@ -18,6 +18,7 @@ import ExercisePlans from "./pages/ExercisePlans";
 import Courses from "./pages/Courses";
 import Products from "./pages/Products";
 import Community from "./pages/Community";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/courses" element={<Courses />} />
             <Route path="/products" element={<Products />} />
             <Route path="/community" element={<Community />} />
+            <Route path="/about" element={<About />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
